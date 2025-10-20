@@ -2,6 +2,8 @@ import os
 import json
 from typing import Dict, Any
 from enum import Enum
+from pathlib import Path
+from jinja2 import Environment, FileSystemLoader
 from app.models import GeneratePlanRequest, GeneratePlanResponse
 
 
@@ -31,6 +33,10 @@ class AIService:
                      Defaults to env var LLM_PROVIDER or 'groq'
         """
         self.provider = provider or os.getenv("LLM_PROVIDER", "groq")
+
+        # Set up Jinja2 template environment
+        prompts_dir = Path(__file__).parent.parent / "prompts"
+        self.jinja_env = Environment(loader=FileSystemLoader(prompts_dir))
 
         if self.provider == LLMProvider.GROQ:
             self._init_groq()
@@ -72,7 +78,7 @@ class AIService:
         print(f"✓ Using Anthropic with {self.model}")
 
     def _build_prompt(self, request: GeneratePlanRequest) -> str:
-        """Construct a detailed prompt for the LLM"""
+        """Construct a detailed prompt for the LLM using Jinja2 template"""
 
         # Build pantry section
         pantry_items = "\n".join([
@@ -95,51 +101,14 @@ class AIService:
                 goals_parts.append(f"  - Preferences: {', '.join(request.goals.preferences)}")
             goals_text = "\n".join(goals_parts)
 
-        prompt = f"""You are CartIQ, an AI household planning assistant. Your job is to create practical, contextual meal plans and shopping lists.
-
-USER INTENT:
-{request.intent}
-
-CURRENT PANTRY INVENTORY:
-{pantry_items if pantry_items else "  (Empty pantry)"}
-
-HOUSEHOLD GOALS & CONSTRAINTS:
-{goals_text if goals_text else "  (No specific constraints provided)"}
-
-PLANNING PERIOD: {request.days} days
-
-Based on the above context, generate a comprehensive meal plan that:
-1. Maximizes use of existing pantry items (especially those expiring soon)
-2. Respects the household goals and constraints
-3. Addresses the user's intent
-4. Minimizes waste and cost
-5. Provides variety and nutrition
-
-Return your response as a JSON object with this exact structure:
-{{
-  "summary": "A 2-3 sentence overview of the plan strategy",
-  "meal_plan": [
-    {{
-      "day": 1,
-      "meal_type": "breakfast",
-      "dish_name": "Name of the dish",
-      "ingredients_used": ["ingredient1", "ingredient2"],
-      "estimated_cost": "$X.XX"
-    }}
-  ],
-  "shopping_list": [
-    {{
-      "name": "item name",
-      "quantity": "amount with unit",
-      "estimated_cost": "$X.XX",
-      "priority": "essential|recommended|optional"
-    }}
-  ],
-  "total_estimated_cost": "$XX.XX",
-  "tips": ["helpful tip 1", "helpful tip 2"]
-}}
-
-IMPORTANT: Return ONLY the JSON object, no additional text or markdown formatting."""
+        # Load and render template
+        template = self.jinja_env.get_template("meal_planner.j2")
+        prompt = template.render(
+            intent=request.intent,
+            pantry_items=pantry_items,
+            goals_text=goals_text,
+            days=request.days
+        )
 
         return prompt
 
