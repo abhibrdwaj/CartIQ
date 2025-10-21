@@ -13,42 +13,53 @@ The system uses a **multi-provider LLM architecture** supporting Groq (FREE), Op
 
 ## Development Commands
 
-### Server Setup
+### Client (Frontend) Setup
+
+```bash
+cd client
+npm install
+cp .env.example .env  # Configure Supabase and API URLs
+npm run dev           # Runs on http://localhost:5173
+```
+
+### Client Build Commands
+
+```bash
+cd client
+npm run build    # Production build
+npm run preview  # Preview production build
+npm run lint     # Run ESLint
+```
+
+### Server (Backend) Setup
 
 ```bash
 cd server
 python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env       # Then configure API keys
+cp .env.example .env      # Configure LLM provider and API keys
+python -m app.main        # Runs on http://localhost:8000 with auto-reload
 ```
-
-### Running the Server
-
-```bash
-cd server
-source venv/bin/activate
-python -m app.main
-```
-
-Server runs on `http://localhost:8000` with auto-reload enabled.
 
 ### Testing
 
 ```bash
+# From server directory with venv activated:
+
 # Health check
 curl http://localhost:8000/health
 
-# Quick API test with hardcoded data
+# API integration test (hardcoded data)
 python tests/test_api.py
 
-# Quick LLM provider test
+# Quick LLM provider connection test
 python test_groq.py
 ```
 
 ### API Documentation
 
-Interactive docs available at:
+Interactive docs available when server is running:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
@@ -138,26 +149,88 @@ Optional:
 
 ```
 CartIQ/
-├── server/
-│   ├── app/
-│   │   ├── main.py              # FastAPI app, /generate-plan endpoint
-│   │   ├── models.py            # Pydantic models with validation
-│   │   ├── ai_service_multi.py  # Multi-provider LLM service
-│   │   └── ai_service.py        # Legacy single-provider service
-│   ├── prompts/
-│   │   └── meal_planner.j2      # Jinja2 prompt template
-│   ├── tests/
-│   │   └── test_api.py          # API integration test
-│   ├── test_groq.py             # Quick LLM connection test
-│   ├── requirements.txt
+├── client/                      # React frontend (Vite)
+│   ├── src/
+│   │   ├── main.jsx            # App entry point
+│   │   ├── App.jsx             # Router and route definitions
+│   │   ├── contexts/
+│   │   │   └── AuthContext.jsx # Supabase auth state management
+│   │   ├── components/
+│   │   │   ├── ProtectedRoute.jsx  # Auth route wrapper
+│   │   │   └── BrandingPanel.jsx   # Shared branding component
+│   │   ├── pages/
+│   │   │   ├── Login.jsx       # Login page
+│   │   │   ├── SignUp.jsx      # Registration page
+│   │   │   └── Dashboard.jsx   # Main authenticated view
+│   │   └── lib/
+│   │       └── supabase.js     # Supabase client initialization
+│   ├── package.json
 │   └── .env.example
-└── README.md
+│
+└── server/                      # Python FastAPI backend
+    ├── app/
+    │   ├── main.py              # FastAPI app, /generate-plan endpoint
+    │   ├── models.py            # Pydantic models with validation
+    │   ├── ai_service_multi.py  # Multi-provider LLM service
+    │   └── ai_service.py        # Legacy single-provider service
+    ├── prompts/
+    │   └── meal_planner.j2      # Jinja2 prompt template
+    ├── tests/
+    │   └── test_api.py          # API integration test
+    ├── test_groq.py             # Quick LLM connection test
+    ├── requirements.txt
+    └── .env.example
 ```
 
-## Future Integration Points
+## Frontend Architecture
 
-The backend is designed to integrate with:
-- **Supabase** - For user authentication and persistent storage (pantry, goals)
-- **Frontend** - React/Svelte/Vue.js with CORS pre-configured
-- **RAG/Store APIs** - Real-time product pricing and availability
-- **Computer Vision** - Receipt scanning and pantry recognition
+### Authentication Flow
+
+The frontend uses **Supabase Auth** with a React Context pattern:
+
+1. **AuthContext** (`contexts/AuthContext.jsx`):
+   - Centralized auth state management
+   - Provides `user`, `session`, `loading` state
+   - Exports `signUp()`, `signIn()`, `signOut()` methods
+   - Auto-syncs with Supabase auth state changes
+
+2. **ProtectedRoute** component:
+   - Wraps authenticated routes
+   - Redirects to `/login` if user not authenticated
+   - Shows loading state during auth initialization
+
+3. **Route structure** (in `App.jsx`):
+   - Public: `/login`, `/signup`
+   - Protected: `/dashboard` (requires auth)
+   - Default: Redirects `/` to `/login`
+
+### Client Configuration
+
+**Environment variables** (`client/.env`):
+- `VITE_SUPABASE_URL` - Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key
+- `VITE_API_URL` - Backend API URL (default: http://localhost:8000)
+
+**Key dependencies**:
+- React 19.1 with React Router DOM 7.9
+- Supabase JS client 2.76
+- Vite 7.1 (build tool with HMR)
+
+## Full-Stack Integration
+
+The application is designed for eventual integration of:
+
+**Current state:**
+- Frontend: Authentication (Supabase) + routing + basic UI
+- Backend: LLM-powered meal planning API (standalone, no auth yet)
+
+**Integration points to implement:**
+- Connect backend `/generate-plan` to authenticated frontend
+- Add pantry CRUD operations (frontend → Supabase DB)
+- Add household goals management (frontend → Supabase DB)
+- Backend to fetch user data from Supabase before calling LLM
+
+**Future extensions:**
+- RAG/Store APIs - Real-time product pricing and availability
+- Computer Vision - Receipt scanning and pantry recognition
+- Lifecycle management - Expiration tracking and notifications
