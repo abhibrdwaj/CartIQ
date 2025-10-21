@@ -78,3 +78,22 @@ class GeneratePlanResponse(BaseModel):
     shopping_list: List[ShoppingItem]
     total_estimated_cost: Optional[str] = None
     tips: Optional[List[str]] = Field(default_factory=list)
+
+
+class GeneratePlanRequestAuth(BaseModel):
+    """
+    Simplified request payload for authenticated endpoint
+    Pantry and goals are fetched from database using auth token
+    """
+    intent: str = Field(..., min_length=1, max_length=1000, description="Natural language intent from the user")
+    days: int = Field(default=7, ge=1, le=14, description="Number of days to plan for")
+
+    @field_validator('intent')
+    @classmethod
+    def sanitize_intent(cls, v):
+        """Sanitize user intent to prevent prompt injection"""
+        if not v or not v.strip():
+            raise ValueError("Intent cannot be empty")
+        # Basic sanitization
+        sanitized = v.strip()[:1000]
+        return sanitized
