@@ -1,11 +1,15 @@
 # Core dependencies
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-pydantic==2.5.3
+pydantic==2.12.3
 python-dotenv==1.0.0
-httpx==0.26.0
+httpx==0.27.2
 requests==2.31.0
 jinja2==3.1.3
+
+# Supabase integration
+supabase==2.22.0
+pyjwt==2.10.1
 
 # LLM Providers (install only what you need)
 groq==0.4.2              # FREE tier - recommended for testing
